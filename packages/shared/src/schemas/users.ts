@@ -1,0 +1,60 @@
+import { z } from 'zod';
+import { isValidIsoDate } from '../age';
+import type { AuthProvider, UserRole } from '../enums';
+
+export const nicknameSchema = z
+  .string()
+  .trim()
+  .min(3, 'Минимум 3 символа')
+  .max(24, 'Максимум 24 символа')
+  .regex(/^[\p{L}\p{N}_.-]+$/u, 'Только буквы, цифры и символы _ . -');
+
+export const updateProfileSchema = z
+  .object({
+    nickname: nicknameSchema.optional(),
+    avatarUrl: z.url().max(500).nullable().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Нечего обновлять');
+export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
+
+export const setBirthDateSchema = z.object({
+  birthDate: z.string().refine(isValidIsoDate, 'Формат даты: ГГГГ-ММ-ДД'),
+});
+export type SetBirthDateInput = z.input<typeof setBirthDateSchema>;
+
+export interface EligibilityDto {
+  age: number | null;
+  /** Есть дата рождения и ≥ 16 */
+  canPlayFree: boolean;
+  /** ≥ 18 */
+  canPlayPaid: boolean;
+  canUseWallet: boolean;
+}
+
+export interface LinkedAccountDto {
+  provider: AuthProvider;
+  externalId: string;
+  displayName: string | null;
+  profileUrl: string | null;
+  verified: boolean;
+}
+
+export interface MeDto {
+  id: string;
+  nickname: string;
+  avatarUrl: string | null;
+  role: UserRole;
+  birthDate: string | null;
+  eligibility: EligibilityDto;
+  linkedAccounts: LinkedAccountDto[];
+  createdAt: string;
+}
+
+export interface PublicUserDto {
+  id: string;
+  nickname: string;
+  avatarUrl: string | null;
+  linkedAccounts: Pick<LinkedAccountDto, 'provider' | 'displayName' | 'profileUrl'>[];
+  teams: { id: string; name: string; tag: string | null; gameCode: string }[];
+  createdAt: string;
+}

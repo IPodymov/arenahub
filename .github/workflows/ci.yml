@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: arenahub
+          POSTGRES_PASSWORD: arenahub
+          POSTGRES_DB: arenahub_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U arenahub -d arenahub_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 3s --health-retries 30
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://arenahub:arenahub@localhost:5432/arenahub_test
+      TEST_DATABASE_URL: postgresql://arenahub:arenahub@localhost:5432/arenahub_test
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: ci-secret-0123456789abcdef0123456789abcdef
+      WEB_ORIGIN: http://localhost:3000
+      AUTH_DEV_LOGIN: 'true'
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:e2e
+      - run: pnpm build

@@ -1,0 +1,532 @@
+// Схема на весь домен. Таблицы матчей, споров, новостей и кошелька созданы заранее,
+// логика к ним появится в следующих итерациях.
+// Дополнительные ограничения (CHECK, частичные уникальные индексы, триггеры) — в SQL миграций.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────── Enums ─────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AuthProvider {
+  STEAM
+  BATTLENET
+  SUPERCELL
+}
+
+enum GameCode {
+  DOTA2
+  CS2
+  CLASH_ROYALE
+  BRAWL_STARS
+}
+
+enum ResultVerification {
+  API
+  SCREENSHOT
+}
+
+/// Откуда берётся призовой фонд
+enum PrizeSource {
+  NONE
+  SPONSOR
+  ENTRY_FEES
+}
+
+enum ParticipantType {
+  SOLO
+  TEAM
+}
+
+enum BracketType {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  SWISS
+}
+
+enum BestOf {
+  BO1
+  BO3
+  BO5
+}
+
+/// Хранимый жизненный цикл. Публичная фаза (регистрация/идёт/…) вычисляется из статуса и дат.
+enum TournamentStatus {
+  DRAFT
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TournamentCategory {
+  OPEN
+  AMATEUR
+  SEMI_PRO
+  PRO
+}
+
+enum TeamMemberRole {
+  PLAYER
+  SUBSTITUTE
+}
+
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  WITHDRAWN
+  DISQUALIFIED
+}
+
+enum MatchStatus {
+  PENDING
+  READY
+  IN_PROGRESS
+  AWAITING_CONFIRMATION
+  DISPUTED
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchGameStatus {
+  PENDING
+  AWAITING_CONFIRMATION
+  DISPUTED
+  COMPLETED
+}
+
+enum SubmissionMethod {
+  API_MATCH_ID
+  SCREENSHOT
+}
+
+enum SubmissionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum NewsCategory {
+  PATCH
+  PLATFORM
+  ANNOUNCEMENT
+}
+
+enum LedgerAccountType {
+  USER_WALLET
+  TOURNAMENT_ESCROW
+  PLATFORM_REVENUE
+  PAYMENT_GATEWAY
+  PAYOUT_GATEWAY
+}
+
+// ───────────── Пользователи ─────────────
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  nickname       String    @unique
+  avatarUrl      String?
+  /// Календарная дата (без времени). После установки меняет только админ.
+  birthDate      DateTime? @db.Date
+  birthDateSetAt DateTime?
+  role           UserRole  @default(USER)
+  bannedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  linkedAccounts       LinkedAccount[]
+  captainOf            Team[]               @relation("TeamCaptain")
+  teamMemberships      TeamMember[]
+  createdInvites       TeamInvite[]
+  soloRegistrations    Registration[]       @relation("SoloRegistrant")
+  createdRegistrations Registration[]       @relation("RegistrationCreator")
+  registrationSlots    RegistrationMember[]
+  createdTournaments   Tournament[]
+  submissions          ResultSubmission[]   @relation("Submitter")
+  reviewedSubmissions  ResultSubmission[]   @relation("Reviewer")
+  openedDisputes       Dispute[]            @relation("DisputeOpener")
+  resolvedDisputes     Dispute[]            @relation("DisputeResolver")
+  newsPosts            NewsPost[]
+  ledgerAccounts       LedgerAccount[]
+}
+
+model LinkedAccount {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  provider    AuthProvider
+  /// steamid64 / id Battle.net / тег игрока Supercell
+  externalId  String
+  displayName String?
+  profileUrl  String?
+  avatarUrl   String?
+  /// null — введено вручную и не подтверждено
+  verifiedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@unique([userId, provider])
+}
+
+// ───────────── Игры ─────────────
+
+model Game {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      GameCode @unique
+  name      String
+  slug      String   @unique
+  iconUrl   String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  policy      GamePolicy?
+  teams       Team[]
+  tournaments Tournament[]
+  news        NewsPost[]
+}
+
+/// Ограничения издателя/платформы для игры. Проверяются доменом при создании турнира и при регистрации.
+model GamePolicy {
+  id                  String               @id @default(uuid()) @db.Uuid
+  gameId              String               @unique @db.Uuid
+  paidEntryAllowed    Boolean
+  /// null — без лимита
+  maxEntryFeeKopecks  BigInt?
+  maxPrizePoolKopecks BigInt?
+  allowedPrizeSources PrizeSource[]
+  minAge              Int
+  allowedTeamSizes    Int[]
+  maxSubstitutes      Int                  @default(0)
+  resultVerification  ResultVerification[]
+  /// Какой привязанный аккаунт обязателен для участия
+  requiredProvider    AuthProvider?
+  notes               String?
+  updatedAt           DateTime             @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+// ───────────── Команды ─────────────
+
+model Team {
+  id          String    @id @default(uuid()) @db.Uuid
+  gameId      String    @db.Uuid
+  name        String
+  tag         String?
+  avatarUrl   String?
+  /// Ровно один капитан гарантируется самой ссылкой
+  captainId   String    @db.Uuid
+  disbandedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  game          Game           @relation(fields: [gameId], references: [id])
+  captain       User           @relation("TeamCaptain", fields: [captainId], references: [id])
+  members       TeamMember[]
+  invites       TeamInvite[]
+  registrations Registration[]
+
+  @@index([gameId])
+  // Уникальность названия среди НЕраспущенных команд игры — частичный индекс в SQL
+}
+
+model TeamMember {
+  id       String         @id @default(uuid()) @db.Uuid
+  teamId   String         @db.Uuid
+  userId   String         @db.Uuid
+  role     TeamMemberRole @default(PLAYER)
+  joinedAt DateTime       @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model TeamInvite {
+  id          String    @id @default(uuid()) @db.Uuid
+  teamId      String    @db.Uuid
+  /// sha256 токена; сам токен живёт только в ссылке
+  tokenHash   String    @unique
+  createdById String    @db.Uuid
+  expiresAt   DateTime
+  maxUses     Int       @default(1)
+  usedCount   Int       @default(0)
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  team      Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id])
+}
+
+// ───────────── Турниры ─────────────
+
+model Tournament {
+  id                   String             @id @default(uuid()) @db.Uuid
+  slug                 String             @unique
+  title                String
+  description          String?
+  /// markdown
+  rules                String?
+  gameId               String             @db.Uuid
+  participantType      ParticipantType
+  /// 1 для соло
+  teamSize             Int
+  maxSubstitutes       Int                @default(0)
+  bracketType          BracketType
+  bestOf               BestOf
+  finalsBestOf         BestOf?
+  category             TournamentCategory
+  status               TournamentStatus   @default(DRAFT)
+  maxSlots             Int
+  minSlots             Int                @default(2)
+  /// Может только ужесточать политику игры
+  minAge               Int?
+  entryFeeKopecks      BigInt             @default(0)
+  prizePoolKopecks     BigInt             @default(0)
+  prizeSource          PrizeSource        @default(NONE)
+  /// [{ place, shareBp }] — доли в базисных пунктах, сумма 10000
+  prizeDistribution    Json?
+  registrationOpensAt  DateTime
+  registrationClosesAt DateTime
+  startsAt             DateTime
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  createdById          String             @db.Uuid
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  game          Game           @relation(fields: [gameId], references: [id])
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  registrations Registration[]
+  matches       Match[]
+  escrowAccount LedgerAccount?
+
+  @@index([status, startsAt])
+  @@index([gameId, status])
+}
+
+model Registration {
+  id               String             @id @default(uuid()) @db.Uuid
+  tournamentId     String             @db.Uuid
+  participantType  ParticipantType
+  /// SOLO
+  userId           String?            @db.Uuid
+  /// TEAM
+  teamId           String?            @db.Uuid
+  teamNameSnapshot String?
+  status           RegistrationStatus
+  seed             Int?
+  createdById      String             @db.Uuid
+  withdrawnAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  tournament  Tournament           @relation(fields: [tournamentId], references: [id])
+  user        User?                @relation("SoloRegistrant", fields: [userId], references: [id])
+  team        Team?                @relation(fields: [teamId], references: [id])
+  createdBy   User                 @relation("RegistrationCreator", fields: [createdById], references: [id])
+  members     RegistrationMember[]
+  matchesAsA  Match[]              @relation("ParticipantA")
+  matchesAsB  Match[]              @relation("ParticipantB")
+  matchesWon  Match[]              @relation("MatchWinner")
+  gamesWon    MatchGame[]          @relation("GameWinner")
+  submissions ResultSubmission[]
+
+  @@index([tournamentId, status])
+}
+
+/// Снимок состава на момент регистрации (для соло — один игрок)
+model RegistrationMember {
+  id             String  @id @default(uuid()) @db.Uuid
+  registrationId String  @db.Uuid
+  /// Денормализовано ради уникальности «один игрок — одно место в турнире»
+  tournamentId   String  @db.Uuid
+  userId         String  @db.Uuid
+  isSubstitute   Boolean @default(false)
+  /// false после отзыва регистрации
+  active         Boolean @default(true)
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([registrationId, userId])
+  @@index([userId])
+}
+
+// ───────────── Матчи (логика — в следующих итерациях) ─────────────
+
+model Match {
+  id                   String      @id @default(uuid()) @db.Uuid
+  tournamentId         String      @db.Uuid
+  round                Int
+  position             Int
+  /// winners / losers / группа
+  bracketGroup         Int         @default(0)
+  /// id матча в brackets-manager
+  bracketRef           String?
+  participantAId       String?     @db.Uuid
+  participantBId       String?     @db.Uuid
+  bestOf               BestOf
+  status               MatchStatus @default(PENDING)
+  winnerRegistrationId String?     @db.Uuid
+  scoreA               Int         @default(0)
+  scoreB               Int         @default(0)
+  scheduledAt          DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id])
+  participantA Registration? @relation("ParticipantA", fields: [participantAId], references: [id])
+  participantB Registration? @relation("ParticipantB", fields: [participantBId], references: [id])
+  winner       Registration? @relation("MatchWinner", fields: [winnerRegistrationId], references: [id])
+  games        MatchGame[]
+  disputes     Dispute[]
+
+  @@unique([tournamentId, bracketGroup, round, position])
+}
+
+model MatchGame {
+  id                   String          @id @default(uuid()) @db.Uuid
+  matchId              String          @db.Uuid
+  gameNumber           Int
+  status               MatchGameStatus @default(PENDING)
+  winnerRegistrationId String?         @db.Uuid
+  externalMatchId      String?
+  completedAt          DateTime?
+
+  match       Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  winner      Registration?      @relation("GameWinner", fields: [winnerRegistrationId], references: [id])
+  submissions ResultSubmission[]
+
+  @@unique([matchId, gameNumber])
+}
+
+model ResultSubmission {
+  id                          String           @id @default(uuid()) @db.Uuid
+  matchGameId                 String           @db.Uuid
+  /// Какая сторона прислала
+  registrationId              String           @db.Uuid
+  submittedById               String           @db.Uuid
+  method                      SubmissionMethod
+  externalMatchId             String?
+  /// Ключ объекта в S3
+  screenshotKey               String?
+  claimedWinnerRegistrationId String           @db.Uuid
+  status                      SubmissionStatus @default(PENDING)
+  reviewedById                String?          @db.Uuid
+  reviewedAt                  DateTime?
+  createdAt                   DateTime         @default(now())
+
+  matchGame    MatchGame    @relation(fields: [matchGameId], references: [id], onDelete: Cascade)
+  registration Registration @relation(fields: [registrationId], references: [id])
+  submittedBy  User         @relation("Submitter", fields: [submittedById], references: [id])
+  reviewedBy   User?        @relation("Reviewer", fields: [reviewedById], references: [id])
+}
+
+model Dispute {
+  id           String        @id @default(uuid()) @db.Uuid
+  matchId      String        @db.Uuid
+  openedById   String        @db.Uuid
+  reason       String
+  evidenceKeys String[]
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?       @db.Uuid
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+
+  match      Match @relation(fields: [matchId], references: [id])
+  openedBy   User  @relation("DisputeOpener", fields: [openedById], references: [id])
+  resolvedBy User? @relation("DisputeResolver", fields: [resolvedById], references: [id])
+}
+
+// ───────────── Новости ─────────────
+
+model NewsPost {
+  id            String       @id @default(uuid()) @db.Uuid
+  slug          String       @unique
+  title         String
+  excerpt       String?
+  body          String
+  category      NewsCategory
+  gameId        String?      @db.Uuid
+  coverImageKey String?
+  authorId      String       @db.Uuid
+  publishedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  game   Game? @relation(fields: [gameId], references: [id])
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([publishedAt])
+}
+
+// ───────────── Кошелёк: двойная запись (логика — в следующих итерациях) ─────────────
+// Баланс счёта = SUM(LedgerEntry.amountKopecks). Прямых UPDATE баланса нет — колонки баланса нет вообще.
+
+model LedgerAccount {
+  id           String            @id @default(uuid()) @db.Uuid
+  type         LedgerAccountType
+  userId       String?           @db.Uuid
+  tournamentId String?           @unique @db.Uuid
+  currency     String            @default("RUB") @db.Char(3)
+  createdAt    DateTime          @default(now())
+
+  user       User?         @relation(fields: [userId], references: [id])
+  tournament Tournament?   @relation(fields: [tournamentId], references: [id])
+  entries    LedgerEntry[]
+
+  @@unique([type, userId])
+}
+
+/// Заголовок проводки: идемпотентность и инвариант Σ entries = 0
+model LedgerTransaction {
+  id             String   @id @default(uuid()) @db.Uuid
+  idempotencyKey String   @unique
+  /// ENTRY_FEE, PRIZE_PAYOUT, DEPOSIT, WITHDRAWAL, REFUND…
+  kind           String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  entries LedgerEntry[]
+}
+
+model LedgerEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  transactionId String   @db.Uuid
+  accountId     String   @db.Uuid
+  /// > 0 — дебет, < 0 — кредит
+  amountKopecks BigInt
+  createdAt     DateTime @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id])
+  account     LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+}

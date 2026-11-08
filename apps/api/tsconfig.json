@@ -1,0 +1,9 @@
+{
+  "extends": "@arenahub/tsconfig/nest.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "baseUrl": ".",
+    "types": ["node"]
+  },
+  "include": ["src", "test", "prisma", "vitest.config.mts", "prisma.config.ts"]
+}
