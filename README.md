@@ -15,8 +15,7 @@
 
 ```bash
 pnpm i                  # зависимости, Prisma Client, .env из .env.example
-docker compose up -d    # Postgres :55432 и Redis :56379
-pnpm dev                # миграции + сид, API :4000, web http://localhost:3000
+pnpm dev                # docker compose (Postgres :55432, Redis :56379), миграции + сид, API :4000, web http://localhost:3000
 ```
 
 Войти можно через **Dev-вход** на `/login` (галочка «как администратор» даёт админку).
