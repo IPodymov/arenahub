@@ -44,9 +44,6 @@ const envSchema = z
         message: 'dev-значение запрещено в production',
       });
     }
-    if (!env.STEAM_API_KEY) {
-      ctx.addIssue({ code: 'custom', path: ['STEAM_API_KEY'], message: 'обязателен в production' });
-    }
   });
 
 export type Env = z.output<typeof envSchema>;
@@ -56,7 +53,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const rootEnv = path.resolve(__dirname, '../../../../.env');
   if (source === process.env && existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
-  const parsed = envSchema.safeParse(source);
+  // На Vercel адрес веба по умолчанию — продовый домен проекта
+  const vercelOrigin = source.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${source.VERCEL_PROJECT_PRODUCTION_URL}`
+    : undefined;
+  const parsed = envSchema.safeParse({ WEB_ORIGIN: vercelOrigin, ...source });
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);
     throw new Error(`Некорректные переменные окружения:\n${lines.join('\n')}`);

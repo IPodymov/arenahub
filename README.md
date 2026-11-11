@@ -34,6 +34,19 @@ pnpm db:migrate  # новая миграция (prisma migrate dev)
 pnpm db:studio
 ```
 
+## Деплой (Vercel)
+
+Один проект Vercel на [Services](https://vercel.com/docs/services) (`vercel.json`): `apps/web` (Next.js)
+и `apps/api` (NestJS, одна функция Fluid compute) деплоятся вместе, регион `fra1`.
+`/api/v1/*` уходит в API, остальное — в Next, поэтому cookie сессии остаётся первосторонней.
+
+- Push в `main` — продакшен, остальные ветки и PR — превью (Git-интеграция).
+- Postgres — Neon, Redis — Upstash (Vercel Marketplace), переменные подключения прописаны в проект.
+- Миграции применяются при сборке API (`prisma migrate deploy` через `DATABASE_URL_UNPOOLED`).
+  Превью сейчас смотрят в ту же базу, что и прод.
+- В проекте заданы `SESSION_SECRET`, `AUTH_DEV_LOGIN=false`; `WEB_ORIGIN` по умолчанию — продовый домен.
+- Справочник игр в новую базу: `NODE_ENV=production DATABASE_URL=… pnpm --filter @arenahub/api exec tsx prisma/seed.ts`.
+
 ## Архитектура
 
 - **Бизнес-правила** — чистые функции в `apps/api/src/modules/*/domain` и `team-rules.ts`;

@@ -11,7 +11,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   configureApp(app);
   const env = app.get<Env>(ENV);
-  await app.listen(env.API_PORT);
+  // На Vercel порт задаёт платформа
+  await app.listen(process.env.PORT ?? env.API_PORT);
   Logger.log(`API: http://localhost:${env.API_PORT}/api/v1`, 'Bootstrap');
 }
 

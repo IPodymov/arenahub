@@ -12,7 +12,11 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    // generate не требует подключения — заглушка позволяет собирать без .env (CI)
-    url: process.env.DATABASE_URL ?? 'postgresql://localhost:5432/placeholder',
+    // generate не требует подключения — заглушка позволяет собирать без .env (CI).
+    // Миграции идут мимо пулера (Neon отдаёт прямое подключение в DATABASE_URL_UNPOOLED).
+    url:
+      process.env.DATABASE_URL_UNPOOLED ??
+      process.env.DATABASE_URL ??
+      'postgresql://localhost:5432/placeholder',
   },
 });
