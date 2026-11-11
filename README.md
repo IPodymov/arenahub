@@ -18,7 +18,9 @@ pnpm i                  # зависимости, Prisma Client, .env из .env.
 pnpm dev                # docker compose (Postgres :55432, Redis :56379), миграции + сид, API :4000, web http://localhost:3000
 ```
 
-Войти можно через **Dev-вход** на `/login` (галочка «как администратор» даёт админку).
+Зарегистрироваться и войти можно на `/login` по никнейму и паролю. Чтобы получить админку,
+добавьте свой никнейм в `ADMIN_NICKNAMES` и войдите заново.
+Dev-вход (без пароля, с галочкой «как администратор») включается `AUTH_DEV_LOGIN=true` в `.env`.
 Для входа через Steam укажите `STEAM_API_KEY` (https://steamcommunity.com/dev/apikey)
 и свой steamid64 в `ADMIN_STEAM_IDS`. Steam возвращает пользователя на `WEB_ORIGIN`.
 
@@ -54,6 +56,7 @@ pnpm db:studio
 |                                                                                               |                                  |
 | --------------------------------------------------------------------------------------------- | -------------------------------- |
 | `GET /auth/steam`, `GET /auth/steam/return`                                                   | вход через Steam                 |
+| `POST /auth/register`, `POST /auth/login`                                                     | никнейм + пароль                 |
 | `POST /auth/dev-login`                                                                        | вход без Steam (только dev/test) |
 | `POST /auth/logout`, `GET /auth/me`, `GET /auth/providers`                                    |                                  |
 | `PATCH /users/me`, `PUT /users/me/birth-date`, `GET /users/:id`                               | профиль                          |

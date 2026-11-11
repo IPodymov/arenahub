@@ -16,6 +16,7 @@ const NOT_FOUND: ReadonlySet<DomainErrorCode> = new Set([
   'TEAM_NOT_FOUND',
   'NOT_REGISTERED',
 ]);
+const UNAUTHORIZED: ReadonlySet<DomainErrorCode> = new Set(['INVALID_CREDENTIALS']);
 const FORBIDDEN: ReadonlySet<DomainErrorCode> = new Set(['NOT_TEAM_CAPTAIN', 'USER_BANNED']);
 const CONFLICT: ReadonlySet<DomainErrorCode> = new Set([
   'NICKNAME_TAKEN',
@@ -27,6 +28,7 @@ const CONFLICT: ReadonlySet<DomainErrorCode> = new Set([
 
 export function domainErrorStatus(code: DomainErrorCode): number {
   if (NOT_FOUND.has(code)) return HttpStatus.NOT_FOUND;
+  if (UNAUTHORIZED.has(code)) return HttpStatus.UNAUTHORIZED;
   if (FORBIDDEN.has(code)) return HttpStatus.FORBIDDEN;
   if (CONFLICT.has(code)) return HttpStatus.CONFLICT;
   return HttpStatus.UNPROCESSABLE_ENTITY;

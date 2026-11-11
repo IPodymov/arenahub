@@ -9,6 +9,7 @@ export const DomainErrorCode = {
   PAID_TOURNAMENT_ADULTS_ONLY: 'PAID_TOURNAMENT_ADULTS_ONLY',
   USER_BANNED: 'USER_BANNED',
   NICKNAME_TAKEN: 'NICKNAME_TAKEN',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   LINKED_ACCOUNT_REQUIRED: 'LINKED_ACCOUNT_REQUIRED',
 
   // Политика игры при создании турнира
@@ -68,6 +69,7 @@ export const DOMAIN_ERROR_MESSAGES: Record<DomainErrorCode, string> = {
   PAID_TOURNAMENT_ADULTS_ONLY: 'Платные турниры доступны только с 18 лет',
   USER_BANNED: 'Аккаунт заблокирован',
   NICKNAME_TAKEN: 'Этот никнейм уже занят',
+  INVALID_CREDENTIALS: 'Неверный никнейм или пароль',
   LINKED_ACCOUNT_REQUIRED: 'Для участия нужно привязать игровой аккаунт',
 
   GAME_NOT_FOUND: 'Игра не найдена',

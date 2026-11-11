@@ -4,7 +4,9 @@ import { randomInt } from 'node:crypto';
 import { ENV, type Env } from '../../config/env';
 import type { SessionUser } from '../../common/auth';
 import { DomainError } from '../../common/domain-error';
+import { isUniqueViolation } from '../../common/prisma-errors';
 import { PrismaService } from '../../infra/prisma.service';
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './password';
 
 export interface SteamProfileData {
   steamId: string;
@@ -57,6 +59,37 @@ export class AuthService {
       },
     });
     return this.toSessionUser(user);
+  }
+
+  /** Регистрация по никнейму и паролю (до подключения внешних аккаунтов). */
+  async register(nickname: string, password: string): Promise<SessionUser> {
+    const passwordHash = await hashPassword(password);
+    try {
+      const user = await this.prisma.user.create({
+        data: { nickname, passwordHash, role: this.isAdminNickname(nickname) ? 'ADMIN' : 'USER' },
+      });
+      return this.toSessionUser(user);
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new DomainError('NICKNAME_TAKEN');
+      throw err;
+    }
+  }
+
+  async loginWithPassword(nickname: string, password: string): Promise<SessionUser> {
+    const user = await this.prisma.user.findUnique({ where: { nickname } });
+    const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!user?.passwordHash || !ok) throw new DomainError('INVALID_CREDENTIALS');
+    if (this.isAdminNickname(user.nickname) && user.role !== 'ADMIN') {
+      return this.toSessionUser(
+        await this.prisma.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } }),
+      );
+    }
+    return this.toSessionUser(user);
+  }
+
+  /** Только для пользователей с паролем: у Steam-входа свой список ADMIN_STEAM_IDS. */
+  private isAdminNickname(nickname: string): boolean {
+    return this.env.ADMIN_NICKNAMES.includes(nickname);
   }
 
   /** Вход без Steam для локальной разработки и e2e. Создаёт фиктивный подтверждённый Steam-аккаунт. */

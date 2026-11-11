@@ -12,6 +12,7 @@ export function applyTestEnv(): void {
   process.env.DATABASE_URL = testDb;
   process.env.AUTH_DEV_LOGIN = 'true';
   process.env.STEAM_API_KEY = '';
+  process.env.ADMIN_NICKNAMES = 'boss';
   process.env.SESSION_SECRET ??= 'test-secret-0123456789abcdef0123456789';
   process.env.WEB_ORIGIN ??= 'http://localhost:3000';
 }

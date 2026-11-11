@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  AuthProvidersDto,
   GameDto,
   MeDto,
   MyRegistrationDto,
@@ -46,7 +47,7 @@ export function useMe() {
 export function useAuthProviders() {
   return useQuery({
     queryKey: qk.providers,
-    queryFn: () => api<{ steam: boolean; devLogin: boolean }>('/auth/providers'),
+    queryFn: () => api<AuthProvidersDto>('/auth/providers'),
     staleTime: Infinity,
   });
 }

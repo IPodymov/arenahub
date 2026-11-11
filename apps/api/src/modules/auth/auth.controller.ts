@@ -13,7 +13,13 @@ import {
 } from '@nestjs/common';
 import { type ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { devLoginSchema, type MeDto } from '@arenahub/shared';
+import {
+  type AuthProvidersDto,
+  devLoginSchema,
+  loginSchema,
+  type MeDto,
+  registerSchema,
+} from '@arenahub/shared';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 import { ENV, type Env } from '../../config/env';
@@ -69,6 +75,27 @@ export class AuthController {
     res.redirect(`${this.env.WEB_ORIGIN}/profile`);
   }
 
+  @Post('register')
+  async register(
+    @Req() req: Request,
+    @Body(new ZodPipe(registerSchema)) body: z.output<typeof registerSchema>,
+  ): Promise<MeDto> {
+    const user = await this.auth.register(body.nickname, body.password);
+    await logIn(req, user);
+    return this.users.getMe(user.id);
+  }
+
+  @Post('login')
+  @HttpCode(200)
+  async login(
+    @Req() req: Request,
+    @Body(new ZodPipe(loginSchema)) body: z.output<typeof loginSchema>,
+  ): Promise<MeDto> {
+    const user = await this.auth.loginWithPassword(body.nickname, body.password);
+    await logIn(req, user);
+    return this.users.getMe(user.id);
+  }
+
   @Post('dev-login')
   @HttpCode(200)
   async devLogin(
@@ -98,7 +125,11 @@ export class AuthController {
   }
 
   @Get('providers')
-  providers(): { steam: boolean; devLogin: boolean } {
-    return { steam: Boolean(this.env.STEAM_API_KEY), devLogin: this.env.AUTH_DEV_LOGIN };
+  providers(): AuthProvidersDto {
+    return {
+      steam: Boolean(this.env.STEAM_API_KEY),
+      password: true,
+      devLogin: this.env.AUTH_DEV_LOGIN,
+    };
   }
 }

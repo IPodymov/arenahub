@@ -9,6 +9,16 @@ const boolFromString = z
   .default('false')
   .transform((v) => v === 'true' || v === '1');
 
+const commaList = z
+  .string()
+  .default('')
+  .transform((v) =>
+    v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -18,15 +28,8 @@ const envSchema = z
     SESSION_SECRET: z.string().min(32, 'SESSION_SECRET должен быть не короче 32 символов'),
     WEB_ORIGIN: z.url(),
     STEAM_API_KEY: z.string().default(''),
-    ADMIN_STEAM_IDS: z
-      .string()
-      .default('')
-      .transform((v) =>
-        v
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      ),
+    ADMIN_STEAM_IDS: commaList,
+    ADMIN_NICKNAMES: commaList,
     AUTH_DEV_LOGIN: boolFromString,
   })
   .superRefine((env, ctx) => {
