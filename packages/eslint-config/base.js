@@ -5,7 +5,16 @@ import tseslint from 'typescript-eslint';
 
 /** Базовые правила для всех TS-пакетов. */
 export const base = tseslint.config(
-  { ignores: ['dist/**', '.next/**', 'coverage/**', 'src/generated/**', 'next-env.d.ts'] },
+  {
+    ignores: [
+      'dist/**',
+      'vercel-dist/**',
+      '.next/**',
+      'coverage/**',
+      'src/generated/**',
+      'next-env.d.ts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

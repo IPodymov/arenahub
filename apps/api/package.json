@@ -49,6 +49,7 @@
     "@types/passport-steam": "1.0.6",
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
+    "esbuild": "0.28.2",
     "eslint": "9.39.5",
     "prisma": "7.10.1",
     "supertest": "7.3.1",

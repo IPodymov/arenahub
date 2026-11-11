@@ -10,12 +10,22 @@
     "api": {
       "root": "apps/api",
       "framework": "nestjs",
-      "entrypoint": "src/main.ts",
-      "buildCommand": "pnpm --filter @arenahub/shared build && pnpm --filter @arenahub/api exec prisma migrate deploy && pnpm --filter @arenahub/api build"
+      "buildCommand": "pnpm --filter @arenahub/shared build && pnpm --filter @arenahub/api build && pnpm --filter @arenahub/api exec prisma migrate deploy && pnpm --filter @arenahub/api exec node scripts/bundle.mjs",
+      "outputDirectory": "vercel-dist"
     }
   },
   "rewrites": [
-    { "source": "/api/v1/(.*)", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/api/v1/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }
