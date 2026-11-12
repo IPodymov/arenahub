@@ -1,6 +1,6 @@
 'use client';
 
-import { type MeDto, PLATFORM_MIN_AGE } from '@arenahub/shared';
+import { type MeDto, PLATFORM_MIN_AGE, ROLE_LABELS } from '@arenahub/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
@@ -154,7 +154,10 @@ export default function ProfilePage() {
     <RequireAuth>
       {(me) => (
         <>
-          <PageTitle title="Профиль" subtitle={me.role === 'ADMIN' ? 'Администратор' : undefined} />
+          <PageTitle
+            title="Профиль"
+            subtitle={me.role === 'USER' ? undefined : ROLE_LABELS[me.role]}
+          />
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>

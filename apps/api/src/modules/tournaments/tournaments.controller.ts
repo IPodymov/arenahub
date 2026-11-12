@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  type BracketDto,
   type MyRegistrationDto,
   type Paginated,
   type ParticipantDto,
@@ -46,6 +47,11 @@ export class TournamentsController {
   @Get(':slug/participants')
   participants(@Param('slug') slug: string): Promise<ParticipantDto[]> {
     return this.tournaments.participants(slug);
+  }
+
+  @Get(':slug/bracket')
+  bracket(@Param('slug') slug: string): Promise<BracketDto> {
+    return this.tournaments.bracket(slug);
   }
 
   @Post(':slug/registrations')

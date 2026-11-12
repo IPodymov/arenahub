@@ -13,6 +13,7 @@ import {
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
+import { Bracket, Standings } from '@/components/tournaments/bracket';
 import { PhaseBadge } from '@/components/tournaments/phase-badge';
 import { RegisterPanel } from '@/components/tournaments/register-panel';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +22,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs } from '@/components/ui/tabs';
 import { ApiError } from '@/lib/api';
 import { formatDateTime, formatEntryFee, formatPrize } from '@/lib/format';
-import { useMe, useParticipants, useTournament } from '@/lib/queries';
+import { useBracket, useMe, useParticipants, useTournament } from '@/lib/queries';
 
-type Tab = 'overview' | 'participants' | 'rules';
+type Tab = 'overview' | 'bracket' | 'participants' | 'rules';
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -38,6 +39,7 @@ export default function TournamentPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: t, error, isPending } = useTournament(slug);
   const participants = useParticipants(slug);
+  const { data: bracket } = useBracket(slug);
   const { data: me } = useMe();
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -67,6 +69,7 @@ export default function TournamentPage() {
           onChange={setTab}
           items={[
             { value: 'overview', label: 'Обзор' },
+            ...(bracket?.matches.length ? [{ value: 'bracket' as const, label: 'Сетка' }] : []),
             { value: 'participants', label: 'Участники', count: t.takenSlots },
             { value: 'rules', label: 'Правила' },
           ]}
@@ -74,6 +77,7 @@ export default function TournamentPage() {
 
         {tab === 'overview' && (
           <div className="flex flex-col gap-4">
+            {bracket && bracket.standings.length > 0 && <Standings standings={bracket.standings} />}
             {t.description && (
               <p className="text-sm leading-relaxed whitespace-pre-line">{t.description}</p>
             )}
@@ -117,6 +121,8 @@ export default function TournamentPage() {
             )}
           </div>
         )}
+
+        {tab === 'bracket' && bracket && <Bracket bracket={bracket} />}
 
         {tab === 'participants' && (
           <div className="flex flex-col gap-2">

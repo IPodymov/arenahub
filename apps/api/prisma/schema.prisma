@@ -14,8 +14,10 @@ datasource db {
 
 // ───────────── Enums ─────────────
 
+/// MODERATOR создаёт и ведёт турниры, рассматривает предложения; ADMIN — всё, плюс роли и баны
 enum UserRole {
   USER
+  MODERATOR
   ADMIN
 }
 
@@ -64,6 +66,9 @@ enum BestOf {
 
 /// Хранимый жизненный цикл. Публичная фаза (регистрация/идёт/…) вычисляется из статуса и дат.
 enum TournamentStatus {
+  /// Предложен пользователем, ждёт модератора
+  PROPOSED
+  REJECTED
   DRAFT
   PUBLISHED
   IN_PROGRESS
@@ -317,6 +322,9 @@ model Tournament {
   startsAt             DateTime
   completedAt          DateTime?
   cancelledAt          DateTime?
+  /// Комментарий модератора при отклонении предложения
+  reviewNote           String?
+  reviewedAt           DateTime?
   createdById          String             @db.Uuid
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt

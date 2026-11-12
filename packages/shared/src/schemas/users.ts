@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isValidIsoDate } from '../age';
-import type { AuthProvider, UserRole } from '../enums';
+import { type AuthProvider, UserRole } from '../enums';
+import { paginationQuery } from './common';
 
 export const nicknameSchema = z
   .string()
@@ -56,5 +57,24 @@ export interface PublicUserDto {
   avatarUrl: string | null;
   linkedAccounts: Pick<LinkedAccountDto, 'provider' | 'displayName' | 'profileUrl'>[];
   teams: { id: string; name: string; tag: string | null; gameCode: string }[];
+  createdAt: string;
+}
+
+export const adminUserListQuery = paginationQuery.extend({
+  q: z.string().trim().max(24).optional(),
+  role: UserRole.optional(),
+});
+export type AdminUserListQuery = z.input<typeof adminUserListQuery>;
+
+export const setUserRoleSchema = z.object({ role: UserRole });
+export type SetUserRoleInput = z.input<typeof setUserRoleSchema>;
+
+export interface AdminUserDto {
+  id: string;
+  nickname: string;
+  role: UserRole;
+  bannedAt: string | null;
+  /** Есть пароль — может входить по никнейму (у демо-игроков и dev-входов нет) */
+  canLogin: boolean;
   createdAt: string;
 }

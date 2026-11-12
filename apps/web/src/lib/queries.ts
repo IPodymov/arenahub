@@ -2,6 +2,7 @@
 
 import type {
   AuthProvidersDto,
+  BracketDto,
   GameDto,
   MeDto,
   MyRegistrationDto,
@@ -25,7 +26,11 @@ export const qk = {
   myRegistration: (slug: string) => ['tournament', slug, 'mine'] as const,
   myTeams: ['teams', 'mine'] as const,
   team: (id: string) => ['team', id] as const,
-  adminTournaments: (page: number) => ['admin', 'tournaments', page] as const,
+  bracket: (slug: string) => ['tournament', slug, 'bracket'] as const,
+  myProposals: ['proposals', 'mine'] as const,
+  adminTournaments: (page: number, status: string) =>
+    ['admin', 'tournaments', page, status] as const,
+  adminUsers: (q: string, page: number) => ['admin', 'users', q, page] as const,
 };
 
 /** Текущий пользователь; null — не вошёл. */
@@ -104,4 +109,18 @@ export function useMyTeams(enabled = true) {
 
 export function useTeam(id: string) {
   return useQuery({ queryKey: qk.team(id), queryFn: () => api<TeamDto>(`/teams/${id}`) });
+}
+
+export function useBracket(slug: string) {
+  return useQuery({
+    queryKey: qk.bracket(slug),
+    queryFn: () => api<BracketDto>(`/tournaments/${slug}/bracket`),
+  });
+}
+
+export function useMyProposals() {
+  return useQuery({
+    queryKey: qk.myProposals,
+    queryFn: () => api<TournamentDto[]>('/proposals/mine'),
+  });
 }

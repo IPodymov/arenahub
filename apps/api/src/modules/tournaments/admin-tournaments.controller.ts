@@ -12,31 +12,34 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  adminTournamentListQuery,
   createTournamentSchema,
   type Paginated,
-  paginationQuery,
+  rejectTournamentSchema,
   type TournamentDto,
   type TournamentSummaryDto,
   updateTournamentSchema,
 } from '@arenahub/shared';
 import { z } from 'zod';
-import { AdminGuard, CurrentUser, type SessionUser } from '../../common/auth';
+import { CurrentUser, type SessionUser, StaffGuard } from '../../common/auth';
 import { ZodPipe } from '../../common/zod.pipe';
 import type { StatusAction } from './domain/tournament-phase';
 import { TournamentsService } from './tournaments.service';
 
-const statusAction = z.enum(['publish', 'start', 'complete', 'cancel']);
+// reject — отдельный маршрут: ему нужна причина в теле
+const statusAction = z.enum(['publish', 'start', 'complete', 'cancel', 'approve']);
 
+/** Модераторы и админы: создание без премодерации, жизненный цикл, рассмотрение предложений. */
 @Controller('admin/tournaments')
-@UseGuards(AdminGuard)
+@UseGuards(StaffGuard)
 export class AdminTournamentsController {
   constructor(private readonly tournaments: TournamentsService) {}
 
   @Get()
   list(
-    @Query(new ZodPipe(paginationQuery)) q: z.output<typeof paginationQuery>,
+    @Query(new ZodPipe(adminTournamentListQuery)) q: z.output<typeof adminTournamentListQuery>,
   ): Promise<Paginated<TournamentSummaryDto>> {
-    return this.tournaments.adminList(q.page, q.pageSize);
+    return this.tournaments.adminList(q.page, q.pageSize, q.status);
   }
 
   @Get(':id')
@@ -60,6 +63,15 @@ export class AdminTournamentsController {
     return this.tournaments.update(id, body);
   }
 
+  @Post(':id/reject')
+  @HttpCode(200)
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(rejectTournamentSchema)) body: z.output<typeof rejectTournamentSchema>,
+  ): Promise<TournamentDto> {
+    return this.tournaments.changeStatus(id, 'reject', body.note);
+  }
+
   @Post(':id/:action')
   @HttpCode(200)
   changeStatus(
@@ -71,7 +83,7 @@ export class AdminTournamentsController {
 
   @Delete(':id')
   @HttpCode(204)
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.tournaments.remove(id);
+  remove(@CurrentUser() user: SessionUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.tournaments.remove(id, user.role);
   }
 }

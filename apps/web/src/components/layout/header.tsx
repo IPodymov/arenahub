@@ -1,5 +1,6 @@
 'use client';
 
+import { isStaff } from '@arenahub/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Menu, Trophy, X } from 'lucide-react';
 import Link from 'next/link';
@@ -20,7 +21,10 @@ export function Header() {
   const links = [
     { href: '/tournaments', label: 'Турниры' },
     ...(me ? [{ href: '/profile', label: 'Профиль' }] : []),
-    ...(me?.role === 'ADMIN' ? [{ href: '/admin/tournaments', label: 'Админка' }] : []),
+    // Персонал создаёт турниры сразу, остальные — предлагают
+    ...(me && !isStaff(me.role) ? [{ href: '/proposals', label: 'Предложить турнир' }] : []),
+    ...(isStaff(me?.role) ? [{ href: '/admin/tournaments', label: 'Модерация' }] : []),
+    ...(me?.role === 'ADMIN' ? [{ href: '/admin/users', label: 'Пользователи' }] : []),
   ];
 
   async function logout() {

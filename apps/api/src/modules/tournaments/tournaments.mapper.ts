@@ -10,6 +10,7 @@ import type { PolicySnapshot, TournamentTerms } from './domain/types';
 
 export const tournamentInclude = {
   game: { include: { policy: true } },
+  createdBy: { select: { id: true, nickname: true } },
   _count: {
     select: { registrations: { where: { status: { in: [...ACTIVE_REGISTRATION_STATUSES] } } } },
   },
@@ -69,6 +70,7 @@ export function toSummaryDto(t: TournamentRow, now: Date): TournamentSummaryDto 
     registrationOpensAt: t.registrationOpensAt.toISOString(),
     registrationClosesAt: t.registrationClosesAt.toISOString(),
     startsAt: t.startsAt.toISOString(),
+    createdBy: t.createdBy,
   };
 }
 
@@ -84,5 +86,6 @@ export function toTournamentDto(t: TournamentRow, now: Date): TournamentDto {
     prizeDistribution: (t.prizeDistribution as TournamentDto['prizeDistribution']) ?? null,
     completedAt: t.completedAt?.toISOString() ?? null,
     cancelledAt: t.cancelledAt?.toISOString() ?? null,
+    reviewNote: t.reviewNote,
   };
 }

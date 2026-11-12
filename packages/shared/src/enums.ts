@@ -2,8 +2,13 @@ import { z } from 'zod';
 
 // Значения совпадают с enum'ами Prisma (apps/api/prisma/schema.prisma).
 
-export const UserRole = z.enum(['USER', 'ADMIN']);
+export const UserRole = z.enum(['USER', 'MODERATOR', 'ADMIN']);
 export type UserRole = z.infer<typeof UserRole>;
+
+/** Модераторы и админы: создают и ведут турниры, рассматривают предложения. */
+export function isStaff(role: UserRole | undefined): boolean {
+  return role === 'MODERATOR' || role === 'ADMIN';
+}
 
 export const AuthProvider = z.enum(['STEAM', 'BATTLENET', 'SUPERCELL']);
 export type AuthProvider = z.infer<typeof AuthProvider>;
@@ -32,6 +37,8 @@ export const BestOf = z.enum(['BO1', 'BO3', 'BO5']);
 export type BestOf = z.infer<typeof BestOf>;
 
 export const TournamentStatus = z.enum([
+  'PROPOSED',
+  'REJECTED',
   'DRAFT',
   'PUBLISHED',
   'IN_PROGRESS',
@@ -40,8 +47,17 @@ export const TournamentStatus = z.enum([
 ]);
 export type TournamentStatus = z.infer<typeof TournamentStatus>;
 
+/** Статусы, которые не видны в публичном каталоге и по прямой ссылке. */
+export const HIDDEN_TOURNAMENT_STATUSES: readonly TournamentStatus[] = [
+  'PROPOSED',
+  'REJECTED',
+  'DRAFT',
+];
+
 /** Публичная фаза: вычисляется из статуса и дат, в БД не хранится. */
 export const TournamentPhase = z.enum([
+  'PROPOSED',
+  'REJECTED',
   'DRAFT',
   'UPCOMING',
   'REGISTRATION',
@@ -74,3 +90,14 @@ export const ACTIVE_REGISTRATION_STATUSES: readonly RegistrationStatus[] = [
   'PENDING_PAYMENT',
   'CONFIRMED',
 ];
+
+export const MatchStatus = z.enum([
+  'PENDING',
+  'READY',
+  'IN_PROGRESS',
+  'AWAITING_CONFIRMATION',
+  'DISPUTED',
+  'COMPLETED',
+  'CANCELLED',
+]);
+export type MatchStatus = z.infer<typeof MatchStatus>;

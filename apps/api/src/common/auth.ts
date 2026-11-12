@@ -6,7 +6,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { UserRole } from '@arenahub/shared';
+import { isStaff, type UserRole } from '@arenahub/shared';
 import type { Request } from 'express';
 
 /** То, что лежит в req.user после десериализации сессии. */
@@ -34,14 +34,25 @@ export class AuthenticatedGuard implements CanActivate {
   }
 }
 
+function forbidden(): ForbiddenException {
+  return new ForbiddenException({ code: 'FORBIDDEN', message: 'Недостаточно прав' });
+}
+
+/** Модератор или админ. */
+@Injectable()
+export class StaffGuard extends AuthenticatedGuard {
+  override canActivate(ctx: ExecutionContext): boolean {
+    super.canActivate(ctx);
+    if (!isStaff(ctx.switchToHttp().getRequest<Request>().user?.role)) throw forbidden();
+    return true;
+  }
+}
+
 @Injectable()
 export class AdminGuard extends AuthenticatedGuard {
   override canActivate(ctx: ExecutionContext): boolean {
     super.canActivate(ctx);
-    const user = ctx.switchToHttp().getRequest<Request>().user;
-    if (user?.role !== 'ADMIN') {
-      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Недостаточно прав' });
-    }
+    if (ctx.switchToHttp().getRequest<Request>().user?.role !== 'ADMIN') throw forbidden();
     return true;
   }
 }

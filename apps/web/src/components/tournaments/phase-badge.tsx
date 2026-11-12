@@ -2,6 +2,8 @@ import { PHASE_LABELS, type TournamentPhase } from '@arenahub/shared';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 
 const VARIANT: Record<TournamentPhase, BadgeProps['variant']> = {
+  PROPOSED: 'warning',
+  REJECTED: 'danger',
   DRAFT: 'default',
   UPCOMING: 'default',
   REGISTRATION: 'success',

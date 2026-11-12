@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ACTIVE_REGISTRATION_STATUSES,
+  HIDDEN_TOURNAMENT_STATUSES,
   type MyRegistrationDto,
   type registerForTournamentSchema,
 } from '@arenahub/shared';
@@ -51,7 +52,8 @@ export class RegistrationsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const locked = await tx.$queryRaw<{ id: string }[]>`
-          SELECT id FROM "Tournament" WHERE slug = ${slug} AND status <> 'DRAFT' FOR UPDATE`;
+          SELECT id FROM "Tournament"
+          WHERE slug = ${slug} AND status NOT IN ('PROPOSED', 'REJECTED', 'DRAFT') FOR UPDATE`;
         const tournamentId = locked[0]?.id;
         if (!tournamentId) throw new DomainError('TOURNAMENT_NOT_FOUND');
 
@@ -163,7 +165,8 @@ export class RegistrationsService {
   /** Отзыв: соло — сам игрок, команда — капитан. */
   async withdraw(actorId: string, slug: string): Promise<void> {
     const t = await this.prisma.tournament.findUnique({ where: { slug } });
-    if (!t || t.status === 'DRAFT') throw new DomainError('TOURNAMENT_NOT_FOUND');
+    if (!t || HIDDEN_TOURNAMENT_STATUSES.includes(t.status))
+      throw new DomainError('TOURNAMENT_NOT_FOUND');
     assertCanWithdraw(toTerms(t), this.clock.now());
 
     const reg = await this.prisma.registration.findFirst({

@@ -20,6 +20,19 @@ pnpm dev                # docker compose (Postgres :55432, Redis :56379), миг
 
 Зарегистрироваться и войти можно на `/login` по никнейму и паролю. Чтобы получить админку,
 добавьте свой никнейм в `ADMIN_NICKNAMES` и войдите заново.
+
+Роли:
+
+- **Пользователь** предлагает турнир (`/proposals`); в каталог он попадёт после одобрения. Одновременно
+  на рассмотрении — не больше трёх предложений.
+- **Модератор** создаёт и публикует турниры сразу, ведёт их статусы, одобряет или отклоняет
+  предложения с комментарием (`/admin/tournaments`). Удаляет только неопубликованные.
+- **Администратор** — всё то же, плюс назначает роли, блокирует пользователей (`/admin/users`)
+  и может удалить любой турнир вместе с сеткой.
+
+Демо-данные (96 игроков-ботов без пароля, команды, 16 турниров во всех фазах, у сыгранных — сетка
+и призы в рублях) локально создаются автоматически. Даты считаются от момента запуска, обновить:
+`pnpm --filter @arenahub/api db:demo -- --reset`.
 Dev-вход (без пароля, с галочкой «как администратор») включается `AUTH_DEV_LOGIN=true` в `.env`.
 Для входа через Steam укажите `STEAM_API_KEY` (https://steamcommunity.com/dev/apikey)
 и свой steamid64 в `ADMIN_STEAM_IDS`. Steam возвращает пользователя на `WEB_ORIGIN`.
@@ -46,6 +59,7 @@ pnpm db:studio
   Превью сейчас смотрят в ту же базу, что и прод.
 - В проекте заданы `SESSION_SECRET`, `AUTH_DEV_LOGIN=false`; `WEB_ORIGIN` по умолчанию — продовый домен.
 - Справочник игр в новую базу: `NODE_ENV=production DATABASE_URL=… pnpm --filter @arenahub/api exec tsx prisma/seed.ts`.
+- Демо-турниры в базу: `DATABASE_URL=… pnpm --filter @arenahub/api db:demo -- --reset`.
 
 ## Архитектура
 
@@ -62,7 +76,9 @@ pnpm db:studio
   в турнире (частичный уникальный индекс). Платная заявка до появления кошелька — `PENDING_PAYMENT`.
 - **Деньги** — только копейки в `BigInt`, в JSON — строкой. Таблицы леджера (двойная запись,
   идемпотентность, неизменяемые проводки) созданы заранее, логики пока нет.
-- Таблицы матчей, споров и новостей созданы на будущее, логики к ним нет.
+- **Сетка** — single elimination с матчем за 3-е место. Места и выплаты считает `domain/standings.ts`:
+  выбывшие в одном раунде делят места (5–8) и поровну — сумму призов за них. Пока матчи заполняет
+  только демо-сид; проведение матчей и споры — следующие итерации.
 
 ## API (`/api/v1`)
 
@@ -79,10 +95,12 @@ pnpm db:studio
 | `GET /invites/:token`, `POST /invites/:token/accept`                                          | вступление по ссылке             |
 | `POST /teams/:id/leave`, `POST /teams/:id/captain`, `PATCH/DELETE /teams/:id/members/:userId` | состав                           |
 | `GET /tournaments?tab&game&teamSize&category&paid&page&pageSize`                              | каталог                          |
-| `GET /tournaments/:slug`, `GET /tournaments/:slug/participants`                               |                                  |
+| `GET /tournaments/:slug`, `GET /tournaments/:slug/{participants,bracket}`                     | турнир, участники, сетка и итоги |
+| `POST /proposals`, `GET /proposals/mine`, `DELETE /proposals/:id`                             | предложения турниров             |
 | `POST /tournaments/:slug/registrations`, `GET/DELETE …/registrations/mine`                    | регистрация                      |
-| `GET/POST /admin/tournaments`, `GET/PATCH/DELETE /admin/tournaments/:id`                      | админка                          |
-| `POST /admin/tournaments/:id/{publish,start,complete,cancel}`                                 | смена статуса                    |
+| `GET/POST /admin/tournaments?status`, `GET/PATCH/DELETE /admin/tournaments/:id`               | модерация (модератор и админ)    |
+| `POST /admin/tournaments/:id/{approve,publish,start,complete,cancel}`, `…/reject`             | смена статуса, рассмотрение      |
+| `GET /admin/users?q&role`, `PATCH /admin/users/:id/role`, `POST /admin/users/:id/{ban,unban}` | роли и баны (только админ)       |
 
 Доменные ошибки: `422 { code, message, details }` (404/403/409 для «не найдено», «нет прав», «конфликт»);
 коды и русские тексты — в `packages/shared/src/errors.ts`.

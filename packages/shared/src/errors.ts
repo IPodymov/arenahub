@@ -32,6 +32,12 @@ export const DomainErrorCode = {
   TOURNAMENT_NOT_EDITABLE: 'TOURNAMENT_NOT_EDITABLE',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
   SLUG_TAKEN: 'SLUG_TAKEN',
+  PROPOSAL_LIMIT_REACHED: 'PROPOSAL_LIMIT_REACHED',
+  FORBIDDEN_FOR_ROLE: 'FORBIDDEN_FOR_ROLE',
+
+  // Управление пользователями
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  CANNOT_MODERATE_SELF: 'CANNOT_MODERATE_SELF',
 
   // Регистрация
   REGISTRATION_NOT_OPEN: 'REGISTRATION_NOT_OPEN',
@@ -90,6 +96,11 @@ export const DOMAIN_ERROR_MESSAGES: Record<DomainErrorCode, string> = {
   TOURNAMENT_NOT_EDITABLE: 'Турнир уже нельзя редактировать',
   INVALID_STATUS_TRANSITION: 'Недопустимая смена статуса турнира',
   SLUG_TAKEN: 'Адрес турнира уже занят',
+  PROPOSAL_LIMIT_REACHED: 'Слишком много предложений на рассмотрении. Дождитесь решения модератора',
+  FORBIDDEN_FOR_ROLE: 'Недостаточно прав для этого действия',
+
+  USER_NOT_FOUND: 'Пользователь не найден',
+  CANNOT_MODERATE_SELF: 'Нельзя менять роль или блокировать самого себя',
 
   REGISTRATION_NOT_OPEN: 'Регистрация на турнир сейчас закрыта',
   TOURNAMENT_FULL: 'Все слоты заняты',

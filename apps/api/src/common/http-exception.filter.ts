@@ -15,9 +15,15 @@ const NOT_FOUND: ReadonlySet<DomainErrorCode> = new Set([
   'TOURNAMENT_NOT_FOUND',
   'TEAM_NOT_FOUND',
   'NOT_REGISTERED',
+  'USER_NOT_FOUND',
 ]);
 const UNAUTHORIZED: ReadonlySet<DomainErrorCode> = new Set(['INVALID_CREDENTIALS']);
-const FORBIDDEN: ReadonlySet<DomainErrorCode> = new Set(['NOT_TEAM_CAPTAIN', 'USER_BANNED']);
+const FORBIDDEN: ReadonlySet<DomainErrorCode> = new Set([
+  'NOT_TEAM_CAPTAIN',
+  'USER_BANNED',
+  'FORBIDDEN_FOR_ROLE',
+  'CANNOT_MODERATE_SELF',
+]);
 const CONFLICT: ReadonlySet<DomainErrorCode> = new Set([
   'NICKNAME_TAKEN',
   'TEAM_NAME_TAKEN',

@@ -8,6 +8,7 @@ import type {
   RegistrationStatus,
   TournamentCategory,
   TournamentPhase,
+  UserRole,
 } from './enums';
 
 export const GAME_LABELS: Record<GameCode, string> = {
@@ -18,6 +19,8 @@ export const GAME_LABELS: Record<GameCode, string> = {
 };
 
 export const PHASE_LABELS: Record<TournamentPhase, string> = {
+  PROPOSED: 'На рассмотрении',
+  REJECTED: 'Отклонён',
   DRAFT: 'Черновик',
   UPCOMING: 'Скоро',
   REGISTRATION: 'Регистрация',
@@ -65,6 +68,12 @@ export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
   CONFIRMED: 'Подтверждена',
   WITHDRAWN: 'Отозвана',
   DISQUALIFIED: 'Дисквалифицирован',
+};
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  USER: 'Пользователь',
+  MODERATOR: 'Модератор',
+  ADMIN: 'Администратор',
 };
 
 export function formatLabel(teamSize: number): string {

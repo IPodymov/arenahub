@@ -4,6 +4,8 @@ import type { ScheduleSnapshot } from './types';
 /** Публичная фаза турнира: хранимый статус + даты. Не требует фоновых задач. */
 export function tournamentPhase(t: ScheduleSnapshot, now: Date): TournamentPhase {
   switch (t.status) {
+    case 'PROPOSED':
+    case 'REJECTED':
     case 'DRAFT':
     case 'IN_PROGRESS':
     case 'COMPLETED':
@@ -23,9 +25,9 @@ export const TAB_PHASES: Record<CatalogTab, readonly TournamentPhase[]> = {
   finished: ['COMPLETED', 'CANCELLED'],
 };
 
-export type StatusAction = 'publish' | 'start' | 'complete' | 'cancel';
+export type StatusAction = 'publish' | 'start' | 'complete' | 'cancel' | 'approve' | 'reject';
 
-/** Переходы жизненного цикла, доступные админу. */
+/** Переходы жизненного цикла, доступные модераторам и админам. */
 export function nextStatus(
   t: ScheduleSnapshot,
   action: StatusAction,
@@ -35,6 +37,11 @@ export function nextStatus(
   switch (action) {
     case 'publish':
       return t.status === 'DRAFT' && now < t.startsAt ? 'PUBLISHED' : null;
+    // Одобренное предложение сразу публикуется
+    case 'approve':
+      return t.status === 'PROPOSED' && now < t.startsAt ? 'PUBLISHED' : null;
+    case 'reject':
+      return t.status === 'PROPOSED' ? 'REJECTED' : null;
     case 'start':
       return t.status === 'PUBLISHED' &&
         (phase === 'REGISTRATION_CLOSED' || phase === 'IN_PROGRESS')
@@ -43,6 +50,8 @@ export function nextStatus(
     case 'complete':
       return phase === 'IN_PROGRESS' ? 'COMPLETED' : null;
     case 'cancel':
-      return t.status === 'COMPLETED' || t.status === 'CANCELLED' ? null : 'CANCELLED';
+      return t.status === 'PUBLISHED' || t.status === 'IN_PROGRESS' || t.status === 'DRAFT'
+        ? 'CANCELLED'
+        : null;
   }
 }

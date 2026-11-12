@@ -1,19 +1,19 @@
 'use client';
 
-import type { MeDto } from '@arenahub/shared';
+import { isStaff, type MeDto } from '@arenahub/shared';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMe } from '@/lib/queries';
 
-/** Показывает children только вошедшему пользователю (и админу, если adminOnly). */
+/** Показывает children только вошедшему пользователю; access сужает круг до персонала или админов. */
 export function RequireAuth({
   children,
-  adminOnly = false,
+  access = 'user',
 }: {
   children: (me: MeDto) => ReactNode;
-  adminOnly?: boolean;
+  access?: 'user' | 'staff' | 'admin';
 }) {
   const { data: me, isPending } = useMe();
   if (isPending) return <Skeleton className="h-40 w-full" />;
@@ -27,7 +27,9 @@ export function RequireAuth({
       </div>
     );
   }
-  if (adminOnly && me.role !== 'ADMIN')
+  if (access === 'staff' && !isStaff(me.role))
+    return <p className="text-muted py-16 text-center">Раздел доступен модераторам</p>;
+  if (access === 'admin' && me.role !== 'ADMIN')
     return <p className="text-muted py-16 text-center">Раздел доступен только администраторам</p>;
   return <>{children(me)}</>;
 }
