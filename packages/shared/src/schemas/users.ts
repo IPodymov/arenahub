@@ -10,13 +10,25 @@ export const nicknameSchema = z
   .max(24, 'Максимум 24 символа')
   .regex(/^[\p{L}\p{N}_.-]+$/u, 'Только буквы, цифры и символы _ . -');
 
+export const emailSchema = z
+  .email('Некорректный адрес почты')
+  .max(254)
+  .transform((v) => v.toLowerCase());
+
 export const updateProfileSchema = z
   .object({
     nickname: nicknameSchema.optional(),
-    avatarUrl: z.url().max(500).nullable().optional(),
+    avatarUrl: z
+      .url({ protocol: /^https$/, error: 'Нужна ссылка https://' })
+      .max(500)
+      .nullable()
+      .optional(),
+    /** null — убрать почту */
+    email: emailSchema.nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, 'Нечего обновлять');
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
+export type UpdateProfileData = z.output<typeof updateProfileSchema>;
 
 export const setBirthDateSchema = z.object({
   birthDate: z.string().refine(isValidIsoDate, 'Формат даты: ГГГГ-ММ-ДД'),
@@ -44,6 +56,9 @@ export interface MeDto {
   id: string;
   nickname: string;
   avatarUrl: string | null;
+  email: string | null;
+  /** false — пароль ещё не задан (вход через Steam), его можно установить без текущего */
+  hasPassword: boolean;
   role: UserRole;
   birthDate: string | null;
   eligibility: EligibilityDto;

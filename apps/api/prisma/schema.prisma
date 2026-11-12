@@ -150,8 +150,12 @@ model User {
   id             String    @id @default(uuid()) @db.Uuid
   nickname       String    @unique
   avatarUrl      String?
+  /// В нижнем регистре; не подтверждается (почтового сервиса пока нет)
+  email          String?   @unique
   /// scrypt-хеш пароля; null — вход только через внешний аккаунт
   passwordHash   String?
+  /// Увеличивается при смене пароля и «выйти везде» — старые сессии перестают действовать
+  sessionVersion Int       @default(0)
   /// Календарная дата (без времени). После установки меняет только админ.
   birthDate      DateTime? @db.Date
   birthDateSetAt DateTime?

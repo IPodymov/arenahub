@@ -26,6 +26,7 @@ const FORBIDDEN: ReadonlySet<DomainErrorCode> = new Set([
 ]);
 const CONFLICT: ReadonlySet<DomainErrorCode> = new Set([
   'NICKNAME_TAKEN',
+  'EMAIL_TAKEN',
   'TEAM_NAME_TAKEN',
   'SLUG_TAKEN',
   'ALREADY_REGISTERED',

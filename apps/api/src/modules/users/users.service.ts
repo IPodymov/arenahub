@@ -4,13 +4,15 @@ import {
   type MeDto,
   PLATFORM_MIN_AGE,
   type PublicUserDto,
-  type UpdateProfileInput,
+  type UpdateProfileData,
 } from '@arenahub/shared';
+import type { SessionUser } from '../../common/auth';
 import { dateOnlyToString, stringToDateOnly } from '../../common/dates';
 import { DomainError } from '../../common/domain-error';
 import { isUniqueViolation } from '../../common/prisma-errors';
 import { Clock } from '../../infra/clock';
 import { PrismaService } from '../../infra/prisma.service';
+import { hashPassword, verifyPassword } from '../auth/password';
 import { computeEligibility } from './age-policy';
 
 const meInclude = { linkedAccounts: { orderBy: { createdAt: 'asc' } } } as const;
@@ -32,6 +34,8 @@ export class UsersService {
       id: user.id,
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
+      email: user.email,
+      hasPassword: user.passwordHash !== null,
       role: user.role,
       birthDate,
       eligibility: computeEligibility(birthDate, this.clock.now()),
@@ -77,14 +81,52 @@ export class UsersService {
     };
   }
 
-  async updateProfile(userId: string, input: UpdateProfileInput): Promise<MeDto> {
+  async updateProfile(userId: string, input: UpdateProfileData): Promise<MeDto> {
     try {
       await this.prisma.user.update({ where: { id: userId }, data: input });
     } catch (err) {
-      if (isUniqueViolation(err)) throw new DomainError('NICKNAME_TAKEN');
-      throw err;
+      if (!isUniqueViolation(err)) throw err;
+      // Уникальны и ник, и почта — выясняем, что именно занято
+      const emailTaken =
+        input.email &&
+        (await this.prisma.user.count({ where: { email: input.email, id: { not: userId } } }));
+      throw new DomainError(emailTaken ? 'EMAIL_TAKEN' : 'NICKNAME_TAKEN');
     }
     return this.getMe(userId);
+  }
+
+  /**
+   * Смена пароля (или установка первого — без текущего). Версия сессии растёт,
+   * поэтому все остальные устройства разлогиниваются; вызывающий перезаписывает свою сессию.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string | undefined,
+    newPassword: string,
+  ): Promise<SessionUser> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (
+      user.passwordHash &&
+      !(currentPassword && (await verifyPassword(currentPassword, user.passwordHash)))
+    )
+      throw new DomainError('WRONG_PASSWORD');
+    return this.bumpSessionVersion(userId, { passwordHash: await hashPassword(newPassword) });
+  }
+
+  /** «Выйти на других устройствах». */
+  revokeOtherSessions(userId: string): Promise<SessionUser> {
+    return this.bumpSessionVersion(userId, {});
+  }
+
+  private async bumpSessionVersion(
+    userId: string,
+    data: { passwordHash?: string },
+  ): Promise<SessionUser> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { ...data, sessionVersion: { increment: 1 } },
+    });
+    return { id: user.id, role: user.role, sessionVersion: user.sessionVersion };
   }
 
   /** Дату рождения пользователь задаёт один раз; дальше — только через поддержку. */

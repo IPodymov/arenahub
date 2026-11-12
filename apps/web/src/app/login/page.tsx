@@ -77,14 +77,14 @@ export default function LoginPage() {
           <Tabs items={MODES} value={mode} onChange={switchMode} />
           <form onSubmit={submit} className="flex flex-col gap-3">
             <Label>
-              Никнейм
+              {mode === 'login' ? 'Никнейм или почта' : 'Никнейм'}
               <Input
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 autoComplete="username"
                 required
                 minLength={mode === 'register' ? 3 : 1}
-                maxLength={24}
+                maxLength={mode === 'register' ? 24 : 254}
               />
             </Label>
             <Label>

@@ -3,7 +3,7 @@
 import { type MeDto, PLATFORM_MIN_AGE, ROLE_LABELS } from '@arenahub/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type InputHTMLAttributes, useState } from 'react';
 import { PageTitle } from '@/components/layout/page-title';
 import { RequireAuth } from '@/components/layout/require-auth';
 import { Alert } from '@/components/ui/alert';
@@ -15,12 +15,34 @@ import { api, errorText } from '@/lib/api';
 import { formatBirthDate } from '@/lib/format';
 import { qk, useMyTeams } from '@/lib/queries';
 
-function NicknameForm({ me }: { me: MeDto }) {
+/** Одно поле профиля с собственной кнопкой «Сохранить»; пустое значение — null, если можно очистить. */
+function ProfileField({
+  me,
+  field,
+  label,
+  hint,
+  type = 'text',
+  clearable = false,
+  inputProps,
+}: {
+  me: MeDto;
+  field: 'nickname' | 'email' | 'avatarUrl';
+  label: string;
+  hint?: string;
+  type?: string;
+  clearable?: boolean;
+  inputProps?: InputHTMLAttributes<HTMLInputElement>;
+}) {
   const qc = useQueryClient();
-  const [nickname, setNickname] = useState(me.nickname);
+  const initial = me[field] ?? '';
+  const [value, setValue] = useState(initial);
   const save = useMutation({
-    mutationFn: () => api<MeDto>('/users/me', 'PATCH', { nickname }),
-    onSuccess: (data) => qc.setQueryData(qk.me, data),
+    mutationFn: () =>
+      api<MeDto>('/users/me', 'PATCH', { [field]: clearable && !value.trim() ? null : value }),
+    onSuccess: (data) => {
+      qc.setQueryData(qk.me, data);
+      setValue(data[field] ?? '');
+    },
   });
   return (
     <form
@@ -31,27 +53,133 @@ function NicknameForm({ me }: { me: MeDto }) {
       }}
     >
       <Label>
-        Никнейм
+        {label}
         <div className="flex gap-2">
           <Input
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            minLength={3}
-            maxLength={24}
-            required
+            type={type}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              save.reset();
+            }}
+            required={!clearable}
+            {...inputProps}
           />
           <Button
             type="submit"
             variant="secondary"
-            disabled={save.isPending || nickname === me.nickname}
+            disabled={save.isPending || value.trim() === initial}
           >
             Сохранить
           </Button>
         </div>
+        {hint && <Hint>{hint}</Hint>}
       </Label>
       {save.error && <Alert tone="danger">{errorText(save.error)}</Alert>}
       {save.isSuccess && <Alert tone="success">Сохранено</Alert>}
     </form>
+  );
+}
+
+function PasswordForm({ me }: { me: MeDto }) {
+  const qc = useQueryClient();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [mismatch, setMismatch] = useState(false);
+  const save = useMutation({
+    mutationFn: () =>
+      api('/users/me/password', 'PUT', {
+        currentPassword: me.hasPassword ? current : undefined,
+        newPassword: next,
+      }),
+    onSuccess: async () => {
+      setCurrent('');
+      setNext('');
+      setRepeat('');
+      await qc.invalidateQueries({ queryKey: qk.me });
+    },
+  });
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setMismatch(next !== repeat);
+    if (next === repeat) save.mutate();
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      {me.hasPassword ? (
+        <Label>
+          Текущий пароль
+          <Input
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            autoComplete="current-password"
+            required
+            maxLength={128}
+          />
+        </Label>
+      ) : (
+        <Hint>
+          Пароль ещё не задан — сейчас вы входите через внешний аккаунт. Задайте пароль, чтобы
+          входить по никнейму или почте.
+        </Hint>
+      )}
+      <Label>
+        Новый пароль
+        <Input
+          type="password"
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+          autoComplete="new-password"
+          required
+          minLength={8}
+          maxLength={128}
+        />
+      </Label>
+      <Label>
+        Повторите новый пароль
+        <Input
+          type="password"
+          value={repeat}
+          onChange={(e) => setRepeat(e.target.value)}
+          autoComplete="new-password"
+          required
+          maxLength={128}
+        />
+      </Label>
+      {mismatch && <Alert tone="danger">Пароли не совпадают</Alert>}
+      {save.error && <Alert tone="danger">{errorText(save.error)}</Alert>}
+      {save.isSuccess && (
+        <Alert tone="success">Пароль сохранён. На других устройствах нужно войти заново.</Alert>
+      )}
+      <Button type="submit" disabled={save.isPending}>
+        {me.hasPassword ? 'Сменить пароль' : 'Задать пароль'}
+      </Button>
+    </form>
+  );
+}
+
+function SessionsControl() {
+  const revoke = useMutation({ mutationFn: () => api('/users/me/sessions/revoke', 'POST') });
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-muted text-sm">
+        Если вы входили с чужого устройства, завершите там сессию — здесь вы останетесь в аккаунте.
+      </p>
+      <Button
+        variant="secondary"
+        disabled={revoke.isPending}
+        onClick={() => revoke.mutate()}
+        className="self-start"
+      >
+        Выйти на других устройствах
+      </Button>
+      {revoke.error && <Alert tone="danger">{errorText(revoke.error)}</Alert>}
+      {revoke.isSuccess && <Alert tone="success">Остальные сессии завершены</Alert>}
+    </div>
   );
 }
 
@@ -164,8 +292,60 @@ export default function ProfilePage() {
                 <CardTitle>Данные</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
-                <NicknameForm me={me} />
+                <div className="flex items-center gap-3">
+                  {me.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- произвольный внешний домен
+                    <img
+                      src={me.avatarUrl}
+                      alt=""
+                      className="border-border size-14 rounded-full border object-cover"
+                    />
+                  ) : (
+                    <div className="bg-surface-2 text-muted flex size-14 items-center justify-center rounded-full text-xl font-semibold">
+                      {me.nickname.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{me.nickname}</p>
+                    <p className="text-muted truncate text-sm">{me.email ?? 'Почта не указана'}</p>
+                  </div>
+                </div>
+                <ProfileField
+                  me={me}
+                  field="nickname"
+                  label="Никнейм"
+                  inputProps={{ minLength: 3, maxLength: 24, autoComplete: 'username' }}
+                />
+                <ProfileField
+                  me={me}
+                  field="email"
+                  label="Почта"
+                  type="email"
+                  clearable
+                  hint="По почте тоже можно входить. Оставьте пустым, чтобы отвязать."
+                  inputProps={{ maxLength: 254, autoComplete: 'email' }}
+                />
+                <ProfileField
+                  me={me}
+                  field="avatarUrl"
+                  label="Аватар"
+                  type="url"
+                  clearable
+                  hint="Ссылка на картинку, начинается с https://"
+                  inputProps={{ maxLength: 500, placeholder: 'https://…' }}
+                />
                 <BirthDateForm me={me} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Безопасность</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6">
+                <PasswordForm me={me} />
+                <div className="border-border border-t pt-5">
+                  <SessionsControl />
+                </div>
               </CardContent>
             </Card>
             <Card>

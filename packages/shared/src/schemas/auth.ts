@@ -19,10 +19,18 @@ export const registerSchema = z.object({
 export type RegisterInput = z.input<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  nickname: z.string().trim().min(1, 'Укажите никнейм'),
+  /** Никнейм или почта */
+  nickname: z.string().trim().min(1, 'Укажите никнейм или почту').max(254),
   password: z.string().min(1, 'Укажите пароль').max(128),
 });
 export type LoginInput = z.input<typeof loginSchema>;
+
+export const changePasswordSchema = z.object({
+  /** Не нужен, если пароля ещё нет */
+  currentPassword: z.string().max(128).optional(),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 
 export interface AuthProvidersDto {
   steam: boolean;

@@ -75,8 +75,11 @@ export class AuthService {
     }
   }
 
-  async loginWithPassword(nickname: string, password: string): Promise<SessionUser> {
-    const user = await this.prisma.user.findUnique({ where: { nickname } });
+  /** Вход по никнейму или почте (если в логине есть «@»). */
+  async loginWithPassword(login: string, password: string): Promise<SessionUser> {
+    const user = await this.prisma.user.findUnique({
+      where: login.includes('@') ? { email: login.toLowerCase() } : { nickname: login },
+    });
     const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
     if (!user?.passwordHash || !ok) throw new DomainError('INVALID_CREDENTIALS');
     if (this.isAdminNickname(user.nickname) && user.role !== 'ADMIN') {
@@ -113,20 +116,21 @@ export class AuthService {
     return this.toSessionUser(user);
   }
 
-  /** Для десериализации сессии: актуальная роль, забаненные не проходят. */
-  async findSessionUser(id: string): Promise<SessionUser | null> {
+  /** Для десериализации сессии: актуальная роль; забаненные и отозванные сессии не проходят. */
+  async findSessionUser(id: string, sessionVersion: number): Promise<SessionUser | null> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user || user.bannedAt) return null;
-    return { id: user.id, role: user.role };
+    if (!user || user.bannedAt || user.sessionVersion !== sessionVersion) return null;
+    return { id: user.id, role: user.role, sessionVersion: user.sessionVersion };
   }
 
   private toSessionUser(user: {
     id: string;
     role: SessionUser['role'];
     bannedAt: Date | null;
+    sessionVersion: number;
   }): SessionUser {
     if (user.bannedAt) throw new DomainError('USER_BANNED');
-    return { id: user.id, role: user.role };
+    return { id: user.id, role: user.role, sessionVersion: user.sessionVersion };
   }
 
   private async freeNickname(displayName: string): Promise<string> {

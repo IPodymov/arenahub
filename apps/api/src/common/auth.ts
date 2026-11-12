@@ -13,6 +13,15 @@ import type { Request } from 'express';
 export interface SessionUser {
   id: string;
   role: UserRole;
+  /** Сессия с другой версией недействительна (сменили пароль или «вышли везде») */
+  sessionVersion: number;
+}
+
+/** Записывает пользователя в сессию (passport) — после входа или смены версии сессии. */
+export function logIn(req: Request, user: SessionUser): Promise<void> {
+  return new Promise((resolve, reject) =>
+    req.logIn(user, (err) => (err ? reject(err) : resolve())),
+  );
 }
 
 declare global {

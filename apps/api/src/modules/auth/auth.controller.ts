@@ -23,7 +23,7 @@ import {
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 import { ENV, type Env } from '../../config/env';
-import { AuthenticatedGuard, CurrentUser, type SessionUser } from '../../common/auth';
+import { AuthenticatedGuard, CurrentUser, logIn, type SessionUser } from '../../common/auth';
 import { ZodPipe } from '../../common/zod.pipe';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
@@ -47,12 +47,6 @@ class SteamAuthGuard extends AuthGuard('steam') {
     await super.logIn(ctx.switchToHttp().getRequest());
     return ok;
   }
-}
-
-function logIn(req: Request, user: SessionUser): Promise<void> {
-  return new Promise((resolve, reject) =>
-    req.logIn(user, (err) => (err ? reject(err) : resolve())),
-  );
 }
 
 @Controller('auth')
