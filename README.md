@@ -60,6 +60,10 @@ pnpm db:studio
 - В проекте заданы `SESSION_SECRET`, `AUTH_DEV_LOGIN=false`; `WEB_ORIGIN` по умолчанию — продовый домен.
 - Справочник игр в новую базу: `NODE_ENV=production DATABASE_URL=… pnpm --filter @arenahub/api exec tsx prisma/seed.ts`.
 - Демо-турниры в базу: `DATABASE_URL=… pnpm --filter @arenahub/api db:demo -- --reset`.
+- Аватары API обрабатывает (`sharp`, 256×256 WebP) и кладёт в публичный Vercel Blob
+  (`BLOB_STORE_ID` через OIDC или `BLOB_READ_WRITE_TOKEN`; в production без них API не стартует).
+  `sharp` — нативный модуль, `scripts/bundle.mjs` ставит его в `vercel-dist/node_modules`.
+  Без учётных данных Blob (локально, e2e) файлы пишутся в `uploads/` в корне и отдаются по `/api/v1/uploads/*`.
 
 ## Архитектура
 

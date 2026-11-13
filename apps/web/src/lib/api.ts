@@ -14,12 +14,16 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-/** Запрос к API через прокси Next.js (/api → apps/api). Cookie сессии уходит автоматически. */
+/**
+ * Запрос к API через прокси Next.js (/api → apps/api). Cookie сессии уходит автоматически.
+ * FormData уходит как multipart (заголовок с boundary ставит браузер), остальное — JSON.
+ */
 export async function api<T>(path: string, method: Method = 'GET', body?: unknown): Promise<T> {
+  const isForm = body instanceof FormData;
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: body === undefined || isForm ? undefined : { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     credentials: 'same-origin',
     cache: 'no-store',
   });

@@ -13,6 +13,7 @@ export const DomainErrorCode = {
   EMAIL_TAKEN: 'EMAIL_TAKEN',
   WRONG_PASSWORD: 'WRONG_PASSWORD',
   LINKED_ACCOUNT_REQUIRED: 'LINKED_ACCOUNT_REQUIRED',
+  AVATAR_INVALID: 'AVATAR_INVALID',
 
   // Политика игры при создании турнира
   GAME_NOT_FOUND: 'GAME_NOT_FOUND',
@@ -81,6 +82,7 @@ export const DOMAIN_ERROR_MESSAGES: Record<DomainErrorCode, string> = {
   EMAIL_TAKEN: 'Эта почта уже привязана к другому аккаунту',
   WRONG_PASSWORD: 'Текущий пароль указан неверно',
   LINKED_ACCOUNT_REQUIRED: 'Для участия нужно привязать игровой аккаунт',
+  AVATAR_INVALID: 'Не удалось прочитать картинку. Подойдут JPEG, PNG, WebP или GIF до 5 МБ',
 
   GAME_NOT_FOUND: 'Игра не найдена',
   GAME_INACTIVE: 'Игра сейчас недоступна для турниров',

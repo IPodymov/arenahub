@@ -11,3 +11,5 @@ coverage
 apps/api/src/generated
 next-env.d.ts
 .vercel
+uploads
+.env*

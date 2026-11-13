@@ -31,11 +31,25 @@ const envSchema = z
     ADMIN_STEAM_IDS: commaList,
     ADMIN_NICKNAMES: commaList,
     AUTH_DEV_LOGIN: boolFromString,
+    /**
+     * Vercel Blob: на Vercel — BLOB_STORE_ID (+ OIDC), снаружи — BLOB_READ_WRITE_TOKEN.
+     * Без них аватары пишутся на диск в UPLOADS_DIR (только для разработки и тестов).
+     */
+    BLOB_STORE_ID: z.string().default(''),
+    BLOB_READ_WRITE_TOKEN: z.string().default(''),
+    UPLOADS_DIR: z.string().min(1),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
     if (env.AUTH_DEV_LOGIN) {
       ctx.addIssue({ code: 'custom', path: ['AUTH_DEV_LOGIN'], message: 'запрещён в production' });
+    }
+    if (!env.BLOB_STORE_ID && !env.BLOB_READ_WRITE_TOKEN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BLOB_STORE_ID'],
+        message: 'в production аватары хранятся только в Vercel Blob',
+      });
     }
     if (env.SESSION_SECRET.startsWith(DEV_SECRET_PREFIX)) {
       ctx.addIssue({
@@ -50,14 +64,19 @@ export type Env = z.output<typeof envSchema>;
 
 /** Читает корневой .env (переменные окружения процесса имеют приоритет) и валидирует. Падает при ошибке. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const rootEnv = path.resolve(__dirname, '../../../../.env');
+  const root = path.resolve(__dirname, '../../../..');
+  const rootEnv = path.join(root, '.env');
   if (source === process.env && existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
   // На Vercel адрес веба по умолчанию — продовый домен проекта
   const vercelOrigin = source.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${source.VERCEL_PROJECT_PRODUCTION_URL}`
     : undefined;
-  const parsed = envSchema.safeParse({ WEB_ORIGIN: vercelOrigin, ...source });
+  const parsed = envSchema.safeParse({
+    WEB_ORIGIN: vercelOrigin,
+    UPLOADS_DIR: path.join(root, 'uploads'),
+    ...source,
+  });
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);
     throw new Error(`Некорректные переменные окружения:\n${lines.join('\n')}`);
