@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import sharp from 'sharp';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { PrismaService } from '../src/infra/prisma.service';
@@ -55,14 +56,46 @@ describe('профиль', () => {
     expect(cleared.body.email).toBeNull();
   });
 
-  it('аватар — только https-ссылка', async () => {
+  it('аватар: сервер приводит картинку к 256×256 WebP, отдаёт её и удаляет старую', async () => {
     const user = await register('avatar');
-    await user.patch('/api/v1/users/me').send({ avatarUrl: 'http://x.ru/a.png' }).expect(400);
-    const ok = await user
-      .patch('/api/v1/users/me')
-      .send({ avatarUrl: 'https://x.ru/a.png' })
+    const png = await sharp({
+      create: { width: 640, height: 400, channels: 3, background: '#3366ff' },
+    })
+      .png()
+      .toBuffer();
+
+    const first = await user
+      .put('/api/v1/users/me/avatar')
+      .attach('file', png, 'me.png')
       .expect(200);
-    expect(ok.body.avatarUrl).toBe('https://x.ru/a.png');
+    expect(first.body.avatarUrl).toMatch(/^\/api\/v1\/uploads\/avatars\/.+\.webp$/);
+
+    const file = await user.get(first.body.avatarUrl).buffer(true).expect(200);
+    expect(file.headers['content-type']).toBe('image/webp');
+    expect(await sharp(file.body as Buffer).metadata()).toMatchObject({
+      format: 'webp',
+      width: 256,
+      height: 256,
+    });
+
+    const second = await user
+      .put('/api/v1/users/me/avatar')
+      .attach('file', png, 'me.png')
+      .expect(200);
+    expect(second.body.avatarUrl).not.toBe(first.body.avatarUrl);
+    await user.get(first.body.avatarUrl).expect(404);
+
+    const bad = await user
+      .put('/api/v1/users/me/avatar')
+      .attach('file', Buffer.from('not an image'), 'x.png')
+      .expect(422);
+    expect(bad.body.code).toBe('AVATAR_INVALID');
+    // Ссылку напрямую задать нельзя
+    await user.patch('/api/v1/users/me').send({ avatarUrl: 'https://x.ru/a.png' }).expect(400);
+
+    const removed = await user.delete('/api/v1/users/me/avatar').expect(200);
+    expect(removed.body.avatarUrl).toBeNull();
+    await user.get(second.body.avatarUrl).expect(404);
   });
 
   it('смена пароля проверяет текущий и разлогинивает другие устройства', async () => {

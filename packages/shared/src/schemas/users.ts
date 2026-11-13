@@ -18,11 +18,6 @@ export const emailSchema = z
 export const updateProfileSchema = z
   .object({
     nickname: nicknameSchema.optional(),
-    avatarUrl: z
-      .url({ protocol: /^https$/, error: 'Нужна ссылка https://' })
-      .max(500)
-      .nullable()
-      .optional(),
     /** null — убрать почту */
     email: emailSchema.nullable().optional(),
   })

@@ -6,6 +6,7 @@ import { REDIS, type RedisClient } from './infra/redis';
 import { sessionMiddleware } from './modules/auth/session';
 
 export const API_PREFIX = 'api/v1';
+export const UPLOADS_PREFIX = `/${API_PREFIX}/uploads`;
 
 /** Общая настройка HTTP-приложения — для main.ts и e2e. */
 export function configureApp(app: INestApplication): void {
@@ -16,6 +17,13 @@ export function configureApp(app: INestApplication): void {
   if (env.NODE_ENV === 'production') express.set('trust proxy', 1);
   express.disable('x-powered-by');
   app.setGlobalPrefix(API_PREFIX);
+  // Имена файлов уникальны (новый файл на каждую загрузку), поэтому кэш вечный
+  express.useStaticAssets(env.UPLOADS_DIR, {
+    prefix: UPLOADS_PREFIX,
+    maxAge: '1y',
+    immutable: true,
+    index: false,
+  });
   app.use(sessionMiddleware(env, redis));
   app.use(passport.initialize());
   app.use(passport.session());

@@ -3,7 +3,7 @@
 import { type MeDto, PLATFORM_MIN_AGE, ROLE_LABELS } from '@arenahub/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { type FormEvent, type InputHTMLAttributes, useState } from 'react';
+import { type FormEvent, type InputHTMLAttributes, useRef, useState } from 'react';
 import { PageTitle } from '@/components/layout/page-title';
 import { RequireAuth } from '@/components/layout/require-auth';
 import { Alert } from '@/components/ui/alert';
@@ -14,6 +14,93 @@ import { Hint, Input, Label } from '@/components/ui/input';
 import { api, errorText } from '@/lib/api';
 import { formatBirthDate } from '@/lib/format';
 import { qk, useMyTeams } from '@/lib/queries';
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Аватар: файл уходит на сервер, там он обрезается до квадрата и сохраняется. */
+function AvatarControl({ me }: { me: MeDto }) {
+  const qc = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const [tooBig, setTooBig] = useState(false);
+  const onSuccess = (data: MeDto) => qc.setQueryData(qk.me, data);
+  const upload = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return api<MeDto>('/users/me/avatar', 'PUT', form);
+    },
+    onSuccess,
+  });
+  const remove = useMutation({
+    mutationFn: () => api<MeDto>('/users/me/avatar', 'DELETE'),
+    onSuccess,
+  });
+  const pending = upload.isPending || remove.isPending;
+  const error = upload.error ?? remove.error;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        {me.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- аватар из Steam живёт на внешнем домене
+          <img
+            src={me.avatarUrl}
+            alt=""
+            className="border-border size-14 rounded-full border object-cover"
+          />
+        ) : (
+          <div className="bg-surface-2 text-muted flex size-14 items-center justify-center rounded-full text-xl font-semibold">
+            {me.nickname.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-medium">{me.nickname}</p>
+          <p className="text-muted truncate text-sm">{me.email ?? 'Почта не указана'}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <input
+          ref={input}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            upload.reset();
+            remove.reset();
+            setTooBig(file.size > AVATAR_MAX_BYTES);
+            if (file.size <= AVATAR_MAX_BYTES) upload.mutate(file);
+          }}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={pending}
+          onClick={() => input.current?.click()}
+        >
+          {upload.isPending ? 'Загрузка…' : me.avatarUrl ? 'Сменить аватар' : 'Загрузить аватар'}
+        </Button>
+        {me.avatarUrl && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => remove.mutate()}
+          >
+            Удалить
+          </Button>
+        )}
+      </div>
+      <Hint>JPEG, PNG, WebP или GIF до 5 МБ. Картинка будет обрезана до квадрата.</Hint>
+      {tooBig && <Alert tone="danger">Файл больше 5 МБ</Alert>}
+      {error && <Alert tone="danger">{errorText(error)}</Alert>}
+    </div>
+  );
+}
 
 /** Одно поле профиля с собственной кнопкой «Сохранить»; пустое значение — null, если можно очистить. */
 function ProfileField({
@@ -26,7 +113,7 @@ function ProfileField({
   inputProps,
 }: {
   me: MeDto;
-  field: 'nickname' | 'email' | 'avatarUrl';
+  field: 'nickname' | 'email';
   label: string;
   hint?: string;
   type?: string;
@@ -292,24 +379,7 @@ export default function ProfilePage() {
                 <CardTitle>Данные</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
-                <div className="flex items-center gap-3">
-                  {me.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- произвольный внешний домен
-                    <img
-                      src={me.avatarUrl}
-                      alt=""
-                      className="border-border size-14 rounded-full border object-cover"
-                    />
-                  ) : (
-                    <div className="bg-surface-2 text-muted flex size-14 items-center justify-center rounded-full text-xl font-semibold">
-                      {me.nickname.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{me.nickname}</p>
-                    <p className="text-muted truncate text-sm">{me.email ?? 'Почта не указана'}</p>
-                  </div>
-                </div>
+                <AvatarControl me={me} />
                 <ProfileField
                   me={me}
                   field="nickname"
@@ -324,15 +394,6 @@ export default function ProfilePage() {
                   clearable
                   hint="По почте тоже можно входить. Оставьте пустым, чтобы отвязать."
                   inputProps={{ maxLength: 254, autoComplete: 'email' }}
-                />
-                <ProfileField
-                  me={me}
-                  field="avatarUrl"
-                  label="Аватар"
-                  type="url"
-                  clearable
-                  hint="Ссылка на картинку, начинается с https://"
-                  inputProps={{ maxLength: 500, placeholder: 'https://…' }}
                 />
                 <BirthDateForm me={me} />
               </CardContent>

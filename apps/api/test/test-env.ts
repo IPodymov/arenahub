@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 /** Переключает процесс на тестовую БД. Вызывается до импорта приложения. */
@@ -15,6 +16,10 @@ export function applyTestEnv(): void {
   process.env.ADMIN_NICKNAMES = 'boss';
   process.env.SESSION_SECRET ??= 'test-secret-0123456789abcdef0123456789';
   process.env.WEB_ORIGIN ??= 'http://localhost:3000';
+  process.env.UPLOADS_DIR = path.join(os.tmpdir(), 'arenahub-test-uploads');
+  // Тесты пишут аватары на диск, а не в настоящий Blob
+  process.env.BLOB_STORE_ID = '';
+  process.env.BLOB_READ_WRITE_TOKEN = '';
 }
 
 /** Защита от очистки не той базы: тесты работают только с БД, чьё имя оканчивается на _test. */

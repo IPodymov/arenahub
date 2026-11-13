@@ -14,6 +14,7 @@ import { Clock } from '../../infra/clock';
 import { PrismaService } from '../../infra/prisma.service';
 import { hashPassword, verifyPassword } from '../auth/password';
 import { computeEligibility } from './age-policy';
+import { AvatarStorage } from './avatar-storage';
 
 const meInclude = { linkedAccounts: { orderBy: { createdAt: 'asc' } } } as const;
 
@@ -22,6 +23,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: Clock,
+    private readonly avatars: AvatarStorage,
   ) {}
 
   async getMe(userId: string): Promise<MeDto> {
@@ -92,6 +94,24 @@ export class UsersService {
         (await this.prisma.user.count({ where: { email: input.email, id: { not: userId } } }));
       throw new DomainError(emailTaken ? 'EMAIL_TAKEN' : 'NICKNAME_TAKEN');
     }
+    return this.getMe(userId);
+  }
+
+  /** Новый аватар из загруженного файла; прежний файл удаляется после успешного сохранения. */
+  async setAvatar(userId: string, file: Buffer): Promise<MeDto> {
+    const { avatarUrl: previous } = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const avatarUrl = await this.avatars.save(userId, file);
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarUrl } });
+    await this.avatars.remove(previous);
+    return this.getMe(userId);
+  }
+
+  async removeAvatar(userId: string): Promise<MeDto> {
+    const { avatarUrl } = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarUrl: null } });
+    await this.avatars.remove(avatarUrl);
     return this.getMe(userId);
   }
 
