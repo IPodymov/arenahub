@@ -13,3 +13,4 @@ next-env.d.ts
 .vercel
 uploads
 .env*
+/prod-backup-*.sql
