@@ -7,16 +7,10 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import { Tabs } from '@/components/ui/tabs';
 import { api, errorText } from '@/lib/api';
 import { qk, useAuthProviders } from '@/lib/queries';
 
 type Mode = 'login' | 'register';
-
-const MODES = [
-  { value: 'login' as const, label: 'Вход' },
-  { value: 'register' as const, label: 'Регистрация' },
-];
 
 export default function LoginPage() {
   const { data: providers } = useAuthProviders();
@@ -74,7 +68,6 @@ export default function LoginPage() {
           <CardDescription>Платформа доступна с 16 лет.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <Tabs items={MODES} value={mode} onChange={switchMode} />
           <form onSubmit={submit} className="flex flex-col gap-3">
             <Label>
               {mode === 'login' ? 'Никнейм или почта' : 'Никнейм'}
@@ -117,6 +110,18 @@ export default function LoginPage() {
               {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
             </Button>
           </form>
+
+          <p className="text-muted text-center text-sm">
+            {mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}{' '}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto"
+              onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+            >
+              {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
+            </Button>
+          </p>
 
           {providers?.steam ? (
             <Button asChild variant="secondary">
